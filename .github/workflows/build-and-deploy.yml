@@ -7,12 +7,12 @@ on:
     branches:
      - "main"
     paths:
-      - "src/Transmitly.ChannelProvider.{Name}/**"
+      - "src/Transmitly.ChannelProvider.Smtp.MailKit/**"
 jobs:
   build_test_deploy_channel_provider:
     uses: transmitly/transmitly/.github/workflows/build-and-deploy-channel-provider.yml@main
     with: 
-      channelProviderName: Transmitly.ChannelProvider.{Name}
+      channelProviderName: Transmitly.ChannelProvider.Smtp.MailKit
     secrets: inherit
 
       
