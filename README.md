@@ -1,6 +1,6 @@
 # Transmitly.ChannelProvider.Smtp.MailKit
 
-A [Transmitly](https://github.com/transmitly/transmitly) channel provider dispatcher implementation using [MailKit](https://github.com/jstedfast/MailKit).
+A [Transmitly™](https://github.com/transmitly/transmitly) channel provider dispatcher implementation using [MailKit](https://github.com/jstedfast/MailKit).
 
 ### Getting started
 
