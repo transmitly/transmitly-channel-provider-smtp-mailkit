@@ -1,4 +1,4 @@
-﻿// ﻿﻿Copyright (c) Code Impressions, LLC. All Rights Reserved.
+﻿// Copyright (c) Code Impressions, LLC. All Rights Reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License")
 //  you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 		public string? MessageString { get; set; }
 
 		public string? ChannelProviderId { get; set; }
-		
+
 		public string? ChannelId { get; set; }
 
 		public Exception? Exception { get; internal set; }
 
-		public CommunicationsStatus Status { get; internal set; }
+		public CommunicationsStatus Status { get; internal set; } = CommunicationsStatus.ClientError(nameof(MailKitChannelProviderClient), "Unknown");
 
 		public string? PipelineId { get; }
 

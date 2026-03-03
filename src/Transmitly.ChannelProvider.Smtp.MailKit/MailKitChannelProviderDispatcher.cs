@@ -1,4 +1,4 @@
-﻿// ﻿﻿Copyright (c) Code Impressions, LLC. All Rights Reserved.
+﻿// Copyright (c) Code Impressions, LLC. All Rights Reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License")
 //  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ using MimeKit.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Transmitly.Util;
@@ -28,6 +28,9 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 {
 	public sealed class MailKitChannelProviderClient(ISmtpClient client, Config.SmtpOptions optionObj) : ChannelProviderDispatcher<IEmail>
 	{
+		private const int DefaultSmtpPort = 587;
+		private const int DefaultSslSmtpPort = 465;
+
 		public MailKitChannelProviderClient(Config.SmtpOptions optionObj) : this(new SmtpClientWrapper(), optionObj)
 		{
 
@@ -99,9 +102,28 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 
 		private async Task Connect(ISmtpClient client, CancellationToken cancellationToken)
 		{
-			await client.ConnectAsync(_optionObj.Host, _optionObj.Port ?? 0, Convert(_optionObj.SocketOptions), cancellationToken).ConfigureAwait(false);
-			await client.AuthenticateAsync(_optionObj.UserName, _optionObj.Password, cancellationToken).ConfigureAwait(false);
+			await client.ConnectAsync(_optionObj.Host, ResolvePort(_optionObj), Convert(_optionObj.SocketOptions), cancellationToken).ConfigureAwait(false);
+			var encoding = ResolveEncoding(_optionObj);
+			if (_optionObj.Credentials != null)
+			{
+				await client.AuthenticateAsync(encoding, _optionObj.Credentials, cancellationToken).ConfigureAwait(false);
+				return;
+			}
+
+			await client.AuthenticateAsync(encoding, _optionObj.UserName, _optionObj.Password, cancellationToken).ConfigureAwait(false);
 		}
+
+		private static int ResolvePort(Config.SmtpOptions options)
+		{
+			if (options.Port.HasValue)
+				return options.Port.Value;
+
+			return options.SocketOptions == Config.SecureSocketOptions.SslOnConnect
+				? DefaultSslSmtpPort
+				: DefaultSmtpPort;
+		}
+
+		private static Encoding ResolveEncoding(Config.SmtpOptions options) => options.Encoding ?? Encoding.UTF8;
 
 		private static SecureSocketOptions Convert(Config.SecureSocketOptions socketOptions)
 		{
@@ -112,7 +134,7 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 				Config.SecureSocketOptions.SslOnConnect => SecureSocketOptions.SslOnConnect,
 				Config.SecureSocketOptions.StartTls => SecureSocketOptions.StartTls,
 				Config.SecureSocketOptions.StartTlsWhenAvailable => SecureSocketOptions.StartTlsWhenAvailable,
-				_ => throw new NotSupportedException("Unsupported socket option: " + Enum.GetName(typeof(Config.SecureSocketOptions), socketOptions)),
+				_ => throw new NotSupportedException("Unsupported socket option: " + socketOptions)
 			};
 		}
 

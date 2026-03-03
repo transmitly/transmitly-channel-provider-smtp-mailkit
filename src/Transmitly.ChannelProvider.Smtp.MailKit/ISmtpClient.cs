@@ -1,4 +1,4 @@
-﻿// ﻿﻿Copyright (c) Code Impressions, LLC. All Rights Reserved.
+﻿// Copyright (c) Code Impressions, LLC. All Rights Reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License")
 //  you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 using MailKit.Security;
 using MimeKit;
 using System;
+using System.Net;
+using System.Text;
 
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,9 +26,10 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 	// Source = https://stackoverflow.com/a/49698497
 	public interface ISmtpClient : IDisposable
 	{
-		Task ConnectAsync(string? host, int v, SecureSocketOptions secureSocketOptions, CancellationToken cancellationToken);
-		Task AuthenticateAsync(string? userName, string? password, CancellationToken cancellationToken);
+		Task ConnectAsync(string? host, int port, SecureSocketOptions secureSocketOptions, CancellationToken cancellationToken);
+		Task AuthenticateAsync(Encoding encoding, ICredentials credentials, CancellationToken cancellationToken);
+		Task AuthenticateAsync(Encoding encoding, string? userName, string? password, CancellationToken cancellationToken);
 		Task<string> SendAsync(MimeMessage msg, CancellationToken cancellationToken);
-		Task DisconnectAsync(bool v, CancellationToken cancellationToken);
+		Task DisconnectAsync(bool quit, CancellationToken cancellationToken);
 	}
 }

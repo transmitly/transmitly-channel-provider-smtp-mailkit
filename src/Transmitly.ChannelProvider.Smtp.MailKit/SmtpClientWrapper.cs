@@ -1,4 +1,4 @@
-﻿// ﻿﻿Copyright (c) Code Impressions, LLC. All Rights Reserved.
+﻿// Copyright (c) Code Impressions, LLC. All Rights Reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License")
 //  you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 using System;
+using System.Net;
+using System.Text;
 
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,13 +57,17 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 
 		protected void CheckDisposed()
 		{
+#if NET8_0_OR_GREATER
+			ObjectDisposedException.ThrowIf(disposed, nameof(SmtpClientWrapper));
+#else
 			if (disposed)
 			{
 				throw new ObjectDisposedException(nameof(SmtpClientWrapper));
 			}
+#endif
 		}
 
-		public Task<string> Send(MimeMessage message, CancellationToken cancellationToken = default, ITransferProgress? progress = null)
+		public Task<string> Send(MimeMessage message, ITransferProgress? progress = null, CancellationToken cancellationToken = default)
 		{
 			CheckDisposed();
 			return _smtpClient.SendAsync(message, cancellationToken, progress);
@@ -74,10 +80,16 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 			return _smtpClient.ConnectAsync(host, port, secureSocketOptions, cancellationToken);
 		}
 
-		public Task AuthenticateAsync(string? userName, string? password, CancellationToken cancellationToken)
+		public Task AuthenticateAsync(Encoding encoding, ICredentials credentials, CancellationToken cancellationToken)
 		{
 			CheckDisposed();
-			return _smtpClient.AuthenticateAsync(userName, password, cancellationToken);
+			return _smtpClient.AuthenticateAsync(encoding, credentials, cancellationToken);
+		}
+
+		public Task AuthenticateAsync(Encoding encoding, string? userName, string? password, CancellationToken cancellationToken)
+		{
+			CheckDisposed();
+			return _smtpClient.AuthenticateAsync(encoding, userName, password, cancellationToken);
 		}
 
 		public Task<string> SendAsync(MimeMessage msg, CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-﻿// ﻿﻿Copyright (c) Code Impressions, LLC. All Rights Reserved.
+﻿// Copyright (c) Code Impressions, LLC. All Rights Reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License")
 //  you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 using MimeKit;
 using Moq;
+using System.Net;
 using System.Text;
 using Transmitly.ChannelProvider.Smtp.Configuration;
 using Transmitly.ChannelProvider.Smtp.MailKit;
@@ -77,7 +78,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				.Returns(Task.CompletedTask)
 				.Verifiable();
 
-			_smtpClientMock.Setup(c => c.AuthenticateAsync(_smtpOptions.UserName, _smtpOptions.Password,
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(It.IsAny<Encoding>(), _smtpOptions.UserName, _smtpOptions.Password,
 				It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask)
 				.Verifiable();
@@ -126,7 +127,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			_smtpClientMock.Setup(c => c.AuthenticateAsync(_smtpOptions.UserName, _smtpOptions.Password,
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(It.IsAny<Encoding>(), _smtpOptions.UserName, _smtpOptions.Password,
 				It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
@@ -152,7 +153,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 
 			_smtpClientMock.Verify(c => c.ConnectAsync(_smtpOptions.Host, port,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()), Times.Once());
-			_smtpClientMock.Verify(c => c.AuthenticateAsync(_smtpOptions.UserName, _smtpOptions.Password,
+			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), _smtpOptions.UserName, _smtpOptions.Password,
 				It.IsAny<CancellationToken>()), Times.Once());
 			_smtpClientMock.Verify(c => c.SendAsync(It.IsAny<MimeMessage>(),
 				It.IsAny<CancellationToken>()), Times.Once());
@@ -169,7 +170,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			_smtpClientMock.Setup(c => c.AuthenticateAsync(_smtpOptions.UserName, _smtpOptions.Password,
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(It.IsAny<Encoding>(), _smtpOptions.UserName, _smtpOptions.Password,
 				It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
@@ -199,6 +200,115 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				Assert.AreEqual("octet-stream", attachment.ContentType.MediaSubtype,
 					"Invalid media subtype was not defaulted.");
 			}
+		}
+
+		[TestMethod]
+		public async Task DispatchAsync_PortNotConfigured_UsesDefaultPort587()
+		{
+			_smtpOptions.Port = null;
+			_smtpOptions.SocketOptions = Configuration.SecureSocketOptions.Auto;
+			var email = CreateValidTestEmail();
+			var contextMock = new Mock<IDispatchCommunicationContext>();
+			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+
+			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, 587,
+				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask)
+				.Verifiable();
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(It.IsAny<Encoding>(), _smtpOptions.UserName, _smtpOptions.Password,
+				It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+			_smtpClientMock.Setup(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync("SentMessage");
+			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+
+			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+
+			_smtpClientMock.Verify();
+		}
+
+		[TestMethod]
+		public async Task DispatchAsync_PortNotConfiguredWithSslOnConnect_UsesDefaultPort465()
+		{
+			_smtpOptions.Port = null;
+			_smtpOptions.SocketOptions = Configuration.SecureSocketOptions.SslOnConnect;
+			var email = CreateValidTestEmail();
+			var contextMock = new Mock<IDispatchCommunicationContext>();
+			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+
+			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, 465,
+				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask)
+				.Verifiable();
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(It.IsAny<Encoding>(), _smtpOptions.UserName, _smtpOptions.Password,
+				It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+			_smtpClientMock.Setup(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync("SentMessage");
+			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+
+			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+
+			_smtpClientMock.Verify();
+		}
+
+		[TestMethod]
+		public async Task DispatchAsync_UsesConfiguredEncodingForUserPasswordAuthentication()
+		{
+			var expectedEncoding = Encoding.ASCII;
+			_smtpOptions.Encoding = expectedEncoding;
+			var email = CreateValidTestEmail();
+			var contextMock = new Mock<IDispatchCommunicationContext>();
+			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+
+			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port.Value,
+				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(expectedEncoding, _smtpOptions.UserName, _smtpOptions.Password,
+				It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask)
+				.Verifiable();
+			_smtpClientMock.Setup(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync("SentMessage");
+			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+
+			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+
+			_smtpClientMock.Verify();
+		}
+
+		[TestMethod]
+		public async Task DispatchAsync_CredentialsProvided_UsesCredentialAuthenticationPath()
+		{
+			var credentials = new NetworkCredential("credential-user", "credential-password");
+			_smtpOptions.Credentials = credentials;
+			var email = CreateValidTestEmail();
+			var contextMock = new Mock<IDispatchCommunicationContext>();
+			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+
+			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port.Value,
+				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+			_smtpClientMock.Setup(c => c.AuthenticateAsync(It.IsAny<Encoding>(), credentials,
+				It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask)
+				.Verifiable();
+			_smtpClientMock.Setup(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync("SentMessage");
+			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
+				.Returns(Task.CompletedTask);
+
+			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+
+			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), credentials, It.IsAny<CancellationToken>()), Times.Once());
+			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never());
 		}
 
 
