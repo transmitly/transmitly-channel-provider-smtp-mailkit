@@ -17,6 +17,7 @@ using MimeKit;
 using MimeKit.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -50,7 +51,7 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 			};
 			msg.From.Add(email.From.ToMailboxAddress());
 			msg.To.AddRange(email.To!.Select(m => m.ToMailboxAddress()));
-			msg.Subject = email.Subject;
+			msg.Subject = email.Subject!;
 
 			if (email.Bcc != null)
 				msg.Bcc.AddRange(email.Bcc.Select(x => x.ToMailboxAddress()));
@@ -143,7 +144,9 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 			foreach (var attachment in attachments)
 			{
 				var (mediaType, subType) = GetContentType(attachment.ContentType);
-				body.Attachments.Add(attachment.Name, attachment.ContentStream, new ContentType(mediaType, subType), cancellationToken);
+				if (string.IsNullOrWhiteSpace(attachment?.Name))
+					return;
+				body.Attachments.Add(attachment?.Name ?? Guid.NewGuid().ToString("N"), attachment?.ContentStream ?? Stream.Null, new ContentType(mediaType, subType), cancellationToken);
 			}
 		}
 

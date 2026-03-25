@@ -45,7 +45,6 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		}
 
 		[TestMethod]
-		[ExpectedException(typeof(ArgumentNullException))]
 		public async Task DispatchAsync_NullEmail_ThrowsArgumentNullException()
 		{
 			// Arrange
@@ -54,7 +53,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			var context = new Mock<IDispatchCommunicationContext>().Object;
 
 			// Act
-			await client.DispatchAsync(email, context, CancellationToken.None);
+			await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => client.DispatchAsync(email, context, CancellationToken.None));
 		}
 
 		[TestMethod]
@@ -64,7 +63,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			var email = CreateValidTestEmail();
 			IDispatchCommunicationContext? context = null;
 
-			await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => client.DispatchAsync(email, context, CancellationToken.None));
+			await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => client.DispatchAsync(email, context, CancellationToken.None));
 		}
 
 		[TestMethod]
@@ -121,7 +120,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			var email = CreateValidTestEmail(withAttachments: true);
 			var contextMock = new Mock<IDispatchCommunicationContext>();
 			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
-			var port = _smtpOptions.Port ?? 587; 
+			var port = _smtpOptions.Port ?? 587;
 
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, port,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
@@ -191,7 +190,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			var multipart = capturedMessage.Body as Multipart;
 			Assert.IsNotNull(multipart, "Expected a multipart MIME body.");
 			var attachments = multipart.Where(part => part is MimePart).Cast<MimePart>().ToList();
-			Assert.IsTrue(attachments.Any(), "Expected at least one attachment.");
+			Assert.AreNotEqual(0, attachments.Count, "Expected at least one attachment.");
 
 			foreach (var attachment in attachments)
 			{
@@ -312,7 +311,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		}
 
 
-		private IEmail CreateValidTestEmail(bool withAttachments = false, bool invalidAttachmentContentType = false)
+		private static TestEmail CreateValidTestEmail(bool withAttachments = false, bool invalidAttachmentContentType = false)
 		{
 			var email = new TestEmail
 			{
