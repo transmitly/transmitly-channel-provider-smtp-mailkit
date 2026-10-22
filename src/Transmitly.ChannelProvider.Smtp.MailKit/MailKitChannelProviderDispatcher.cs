@@ -27,18 +27,18 @@ using Config = Transmitly.ChannelProvider.Smtp.Configuration;
 
 namespace Transmitly.ChannelProvider.Smtp.MailKit
 {
-	public sealed class MailKitChannelProviderClient(ISmtpClient client, Config.SmtpOptions optionObj) : ChannelProviderDispatcher<IEmail>
+	public sealed class MailKitChannelProviderClient(Func<ISmtpClient> createClient, Config.SmtpOptions optionObj) : ChannelProviderDispatcher<IEmail>
 	{
 		private const int DefaultSmtpPort = 587;
 		private const int DefaultSslSmtpPort = 465;
 
-		public MailKitChannelProviderClient(Config.SmtpOptions optionObj) : this(new SmtpClientWrapper(), optionObj)
+		public MailKitChannelProviderClient(Config.SmtpOptions optionObj) : this(() => new SmtpClientWrapper(), optionObj)
 		{
 
 		}
 
 		private readonly Config.SmtpOptions _optionObj = Guard.AgainstNull(optionObj);
-		private readonly ISmtpClient _client = client;
+		private readonly Func<ISmtpClient> _createClient = Guard.AgainstNull(createClient);
 
 		public override async Task<IReadOnlyCollection<IDispatchResult?>> DispatchAsync(IEmail email, IDispatchCommunicationContext communicationContext, CancellationToken cancellationToken)
 		{
@@ -72,8 +72,9 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 
 			msg.Body = body.ToMessageBody();
 
-			await Connect(_client, cancellationToken).ConfigureAwait(false);
-			string result = await Send(msg, _client, cancellationToken).ConfigureAwait(false);
+			using var client = _createClient();
+			await Connect(client, cancellationToken).ConfigureAwait(false);
+			string result = await Send(msg, client, cancellationToken).ConfigureAwait(false);
 			var commResult = new MailKitSendResult
 			{
 				ResourceId = msg.MessageId,

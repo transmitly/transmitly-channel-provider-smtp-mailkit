@@ -12,6 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+using MKSmtp = MailKit.Net.Smtp;
 using MimeKit;
 using Moq;
 using System.Net;
@@ -48,7 +49,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		public async Task DispatchAsync_NullEmail_ThrowsArgumentNullException()
 		{
 			// Arrange
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 			IEmail? email = null; // Intentionally null
 			var context = new Mock<IDispatchCommunicationContext>().Object;
 
@@ -59,7 +60,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		[TestMethod]
 		public async Task DispatchAsync_NullCommunicationContext_ThrowsArgumentNullException()
 		{
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 			var email = CreateValidTestEmail();
 			IDispatchCommunicationContext? context = null;
 
@@ -93,7 +94,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				.Returns(Task.CompletedTask)
 				.Verifiable();
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 
 			var results = await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
@@ -139,7 +140,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 
 			var results = await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
@@ -182,7 +183,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 
 			var results = await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
@@ -222,7 +223,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
 			_smtpClientMock.Verify();
@@ -249,7 +250,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
 			_smtpClientMock.Verify();
@@ -276,7 +277,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
 			_smtpClientMock.Verify();
@@ -303,13 +304,102 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpClientMock.Setup(c => c.DisconnectAsync(true, It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
 
-			var client = new MailKitChannelProviderClient(_smtpClientMock.Object, _smtpOptions);
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
 
 			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), credentials, It.IsAny<CancellationToken>()), Times.Once());
 			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never());
 		}
 
+
+		/// <summary>
+		/// The dispatcher used to hold one SmtpClient for its whole lifetime. When the server rejected a message (e.g. a bad
+		/// recipient) the client stayed connected, and because DI registers the dispatcher as a singleton, every later dispatch
+		/// failed with "already connected" until the app restarted.
+		/// </summary>
+		[TestMethod]
+		public async Task RejectedMessageShouldNotBreakLaterDispatches()
+		{
+			var created = new List<FakeSmtpClient>();
+			var dispatcher = new MailKitChannelProviderClient(() =>
+			{
+				var fake = new FakeSmtpClient();
+				created.Add(fake);
+				return fake;
+			}, _smtpOptions);
+			var badRecipient = CreateValidTestEmail();
+			badRecipient.To = [FakeSmtpClient.RejectedAddress.AsIdentityAddress()];
+
+			await Assert.ThrowsExactlyAsync<MKSmtp.SmtpCommandException>(() => dispatcher.DispatchAsync(badRecipient, CreateContext(), CancellationToken.None));
+			var results = await dispatcher.DispatchAsync(CreateValidTestEmail(), CreateContext(), CancellationToken.None);
+
+			Assert.IsTrue(results.Single()!.Status.IsSuccess(), "A rejected message left the shared SmtpClient connected and broke the next dispatch.");
+			Assert.IsTrue(created.All(c => c.Disposed), "Each dispatch must dispose its SmtpClient so the connection is closed, even when sending fails.");
+		}
+
+		[TestMethod]
+		public async Task ConcurrentDispatchesShouldNotShareAnSmtpClient()
+		{
+			var dispatcher = new MailKitChannelProviderClient(() => new FakeSmtpClient(), _smtpOptions);
+
+			var results = await Task.WhenAll(
+				dispatcher.DispatchAsync(CreateValidTestEmail(), CreateContext(), CancellationToken.None),
+				dispatcher.DispatchAsync(CreateValidTestEmail(), CreateContext(), CancellationToken.None));
+
+			Assert.IsTrue(results.All(r => r.Single()!.Status.IsSuccess()));
+		}
+
+		private static IDispatchCommunicationContext CreateContext()
+		{
+			var context = new Mock<IDispatchCommunicationContext>();
+			context.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			context.Setup(c => c.LoggerFactory).Returns(new Mock<Transmitly.Logging.ILoggerFactory> { DefaultValue = DefaultValue.Mock }.Object);
+			return context.Object;
+		}
+
+		/// <summary>
+		/// Mirrors the MailKit SmtpClient behavior that matters here: a client holds one connection, refuses to connect while
+		/// connected, and stays connected when the server rejects a message.
+		/// </summary>
+		private sealed class FakeSmtpClient : ISmtpClient
+		{
+			public const string RejectedAddress = "rejected@test.com";
+			private int _connected;
+
+			public bool Disposed { get; private set; }
+
+			public async Task ConnectAsync(string? host, int port, MKS.SecureSocketOptions secureSocketOptions, CancellationToken cancellationToken)
+			{
+				if (Interlocked.Exchange(ref _connected, 1) == 1)
+					throw new InvalidOperationException("The SmtpClient is already connected.");
+				await Task.Yield();
+			}
+
+			public Task AuthenticateAsync(Encoding encoding, ICredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+
+			public Task AuthenticateAsync(Encoding encoding, string? userName, string? password, CancellationToken cancellationToken) => Task.CompletedTask;
+
+			public async Task<string> SendAsync(MimeMessage msg, CancellationToken cancellationToken)
+			{
+				await Task.Yield();
+				var rejected = msg.To.Mailboxes.FirstOrDefault(m => m.Address == RejectedAddress);
+				if (rejected != null)
+					throw new MKSmtp.SmtpCommandException(MKSmtp.SmtpErrorCode.RecipientNotAccepted, MKSmtp.SmtpStatusCode.MailboxUnavailable, rejected, "Mailbox unavailable");
+				return "250 OK";
+			}
+
+			public Task DisconnectAsync(bool quit, CancellationToken cancellationToken)
+			{
+				_connected = 0;
+				return Task.CompletedTask;
+			}
+
+			public void Dispose()
+			{
+				_connected = 0;
+				Disposed = true;
+			}
+		}
 
 		private static TestEmail CreateValidTestEmail(bool withAttachments = false, bool invalidAttachmentContentType = false)
 		{
