@@ -71,8 +71,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		public async Task DispatchAsync_ValidEmail_ReturnsDispatchedResult()
 		{
 			var email = CreateValidTestEmail();
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port.Value,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask)
@@ -96,7 +95,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 
-			var results = await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			var results = await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			Assert.IsNotNull(results, "Result should not be null.");
 			Assert.AreEqual(1, results.Count, "Result count should be one.");
@@ -119,8 +118,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		public async Task DispatchAsync_EmailWithAttachments_AttachmentsAreAdded()
 		{
 			var email = CreateValidTestEmail(withAttachments: true);
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 			var port = _smtpOptions.Port ?? 587;
 
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, port,
@@ -142,7 +140,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 
-			var results = await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			var results = await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			// Assert: Verify attachments were processed.
 			Assert.IsNotNull(capturedMessage);
@@ -164,8 +162,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 		public async Task DispatchAsync_EmailWithInvalidAttachmentContentType_UsesDefaultContentType()
 		{
 			var email = CreateValidTestEmail(withAttachments: true, invalidAttachmentContentType: true);
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port.Value,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
 				.Returns(Task.CompletedTask);
@@ -185,7 +182,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
 
-			var results = await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			var results = await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			Assert.IsNotNull(capturedMessage);
 			var multipart = capturedMessage.Body as Multipart;
@@ -208,8 +205,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpOptions.Port = null;
 			_smtpOptions.SocketOptions = Configuration.SecureSocketOptions.Auto;
 			var email = CreateValidTestEmail();
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, 587,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
@@ -224,7 +220,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				.Returns(Task.CompletedTask);
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
-			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			_smtpClientMock.Verify();
 		}
@@ -235,8 +231,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			_smtpOptions.Port = null;
 			_smtpOptions.SocketOptions = Configuration.SecureSocketOptions.SslOnConnect;
 			var email = CreateValidTestEmail();
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, 465,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
@@ -251,7 +246,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				.Returns(Task.CompletedTask);
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
-			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			_smtpClientMock.Verify();
 		}
@@ -262,8 +257,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			var expectedEncoding = Encoding.ASCII;
 			_smtpOptions.Encoding = expectedEncoding;
 			var email = CreateValidTestEmail();
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port.Value,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
@@ -278,7 +272,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				.Returns(Task.CompletedTask);
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
-			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			_smtpClientMock.Verify();
 		}
@@ -289,8 +283,7 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			var credentials = new NetworkCredential("credential-user", "credential-password");
 			_smtpOptions.Credentials = credentials;
 			var email = CreateValidTestEmail();
-			var contextMock = new Mock<IDispatchCommunicationContext>();
-			contextMock.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
+			var contextMock = CreateContext();
 
 			_smtpClientMock.Setup(c => c.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port.Value,
 				It.IsAny<MKS.SecureSocketOptions>(), It.IsAny<CancellationToken>()))
@@ -305,9 +298,26 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 				.Returns(Task.CompletedTask);
 
 			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
-			await client.DispatchAsync(email, contextMock.Object, CancellationToken.None);
+			await client.DispatchAsync(email, contextMock, CancellationToken.None);
 
 			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), credentials, It.IsAny<CancellationToken>()), Times.Once());
+			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never());
+		}
+
+		[TestMethod]
+		public async Task DispatchAsync_NoCredentialsOrUserName_SkipsAuthentication()
+		{
+			// Internal relays often accept mail without authentication.
+			_smtpOptions.UserName = null;
+			_smtpOptions.Password = null;
+			_smtpClientMock.Setup(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync("SentMessage");
+
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
+			var results = await client.DispatchAsync(CreateValidTestEmail(), CreateContext(), CancellationToken.None);
+
+			Assert.IsTrue(results.Single()!.Status.IsSuccess());
+			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), It.IsAny<ICredentials>(), It.IsAny<CancellationToken>()), Times.Never());
 			_smtpClientMock.Verify(c => c.AuthenticateAsync(It.IsAny<Encoding>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never());
 		}
 

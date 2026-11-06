@@ -112,6 +112,10 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 				return;
 			}
 
+			// No credentials: internal relays without authentication
+			if (string.IsNullOrEmpty(_optionObj.UserName))
+				return;
+
 			await client.AuthenticateAsync(encoding, _optionObj.UserName, _optionObj.Password, cancellationToken).ConfigureAwait(false);
 		}
 
