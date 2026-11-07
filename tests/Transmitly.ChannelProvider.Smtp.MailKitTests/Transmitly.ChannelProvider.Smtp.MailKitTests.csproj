@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks Condition=" '$(OS)' == 'Windows_NT'">net472;net48</TargetFrameworks>
-		<TargetFrameworks>$(TargetFrameworks);net6.0;net8.0;net9.0</TargetFrameworks>
+		<TargetFrameworks>net6.0;net8.0;net9.0;net10.0</TargetFrameworks>
+		<TargetFrameworks Condition=" '$(OS)' == 'Windows_NT'">net472;net48;$(TargetFrameworks);</TargetFrameworks>
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -28,9 +28,7 @@
 		<PackageReference Include="MSTest.TestAdapter" Version="3.11.1" />
 		<PackageReference Include="MSTest.TestFramework" Version="3.11.1" />
 	</ItemGroup>
-	<ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
-		<Reference Include="Microsoft.CSharp" />
-	</ItemGroup>
+	
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Transmitly.ChannelProvider.Smtp.MailKit\Transmitly.ChannelProvider.Smtp.MailKit.csproj" />
 	</ItemGroup>

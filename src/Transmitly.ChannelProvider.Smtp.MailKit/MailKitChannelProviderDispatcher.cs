@@ -68,7 +68,7 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 				TextBody = email.TextBody
 			};
 
-			AddAttachments(body, email.Attachments, cancellationToken);
+			AddAttachments(body, email.Attachments, communicationContext.ContentModel?.LinkedResources, cancellationToken);
 
 			msg.Body = body.ToMessageBody();
 
@@ -144,15 +144,32 @@ namespace Transmitly.ChannelProvider.Smtp.MailKit
 			};
 		}
 
-		private static void AddAttachments(BodyBuilder body, IReadOnlyCollection<IEmailAttachment> attachments, CancellationToken cancellationToken)
+		private static void AddAttachments(BodyBuilder body, IReadOnlyCollection<IEmailAttachment> attachments, IReadOnlyList<LinkedResource>? linkedResources, CancellationToken cancellationToken)
 		{
 			foreach (var attachment in attachments)
 			{
 				var (mediaType, subType) = GetContentType(attachment.ContentType);
-				if (string.IsNullOrWhiteSpace(attachment?.Name))
-					return;
-				body.Attachments.Add(attachment?.Name ?? Guid.NewGuid().ToString("N"), attachment?.ContentStream ?? Stream.Null, new ContentType(mediaType, subType), cancellationToken);
+				var name = string.IsNullOrWhiteSpace(attachment.Name) ? Guid.NewGuid().ToString("N") : attachment.Name!;
+				body.Attachments.Add(name, Rewind(attachment.ContentStream), new ContentType(mediaType, subType), cancellationToken);
 			}
+
+			foreach (var resource in linkedResources ?? [])
+			{
+				// HTML refers to an inline image as cid:<content id>; accept ids given with or without that prefix.
+				var contentId = resource.Id.StartsWith("cid:", StringComparison.OrdinalIgnoreCase) ? resource.Id.Substring(4) : resource.Id;
+				var (mediaType, subType) = GetContentType(resource.ContentType);
+				var part = body.LinkedResources.Add(resource.Name ?? contentId, Rewind(resource.ContentStream), new ContentType(mediaType, subType), cancellationToken);
+				part.ContentId = contentId;
+			}
+		}
+
+		// Every recipient's email shares the same resource streams, so read each one from the start.
+		private static Stream Rewind(Stream? stream)
+		{
+			Guard.AgainstNull(stream);
+			if (stream!.CanSeek)
+				stream.Position = 0;
+			return stream;
 		}
 
 		private static (string mediaType, string subType) GetContentType(string? contentType)

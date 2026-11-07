@@ -359,11 +359,53 @@ namespace Transmitly.ChannelProvider.Smtp.Tests
 			Assert.IsTrue(results.All(r => r.Single()!.Status.IsSuccess()));
 		}
 
-		private static IDispatchCommunicationContext CreateContext()
+		[TestMethod]
+		public async Task AttachmentsAndInlineImage_AreSent()
+		{
+			var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+			var email = CreateValidTestEmail(withAttachments: true);
+			email.HtmlBody = "<img src=\"cid:logo\"> Hello";
+			// An attachment without a name used to stop every attachment after it from being added.
+			var unnamed = new TestEmailAttachment { Name = "", ContentType = "text/plain", ContentStream = new MemoryStream(Encoding.UTF8.GetBytes("unnamed")) };
+			email.Attachments = [unnamed, email.Attachments.Single()];
+			var context = CreateContext(new LinkedResource("cid:logo", new MemoryStream(png)) { ContentType = "image/png" });
+
+			var sent = new List<MimeMessage>();
+			_smtpClientMock.Setup(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>()))
+				.Callback<MimeMessage, CancellationToken>((msg, _) => sent.Add(msg))
+				.ReturnsAsync("SentMessage");
+			var client = new MailKitChannelProviderClient(() => _smtpClientMock.Object, _smtpOptions);
+
+			// Sent twice: each recipient's email reuses the same resource streams.
+			await client.DispatchAsync(email, context, CancellationToken.None);
+			await client.DispatchAsync(email, context, CancellationToken.None);
+
+			var message = sent.Last();
+			var attachments = message.Attachments.OfType<MimePart>().ToList();
+			Assert.AreEqual(2, attachments.Count);
+			Assert.AreEqual("unnamed", Encoding.UTF8.GetString(Content(attachments[0])));
+			Assert.AreEqual("attachment.txt", attachments[1].FileName);
+			Assert.AreEqual("Test content", Encoding.UTF8.GetString(Content(attachments[1])));
+
+			var logo = message.BodyParts.OfType<MimePart>().Single(p => p.ContentId == "logo");
+			Assert.AreEqual("image/png", logo.ContentType.MimeType);
+			Assert.AreEqual(ContentDisposition.Inline, logo.ContentDisposition.Disposition);
+			CollectionAssert.AreEqual(png, Content(logo));
+		}
+
+		private static byte[] Content(MimePart part)
+		{
+			using var stream = new MemoryStream();
+			part.Content.DecodeTo(stream);
+			return stream.ToArray();
+		}
+
+		private static IDispatchCommunicationContext CreateContext(params LinkedResource[] linkedResources)
 		{
 			var context = new Mock<IDispatchCommunicationContext>();
 			context.Setup(c => c.DeliveryReportManager).Returns(new Mock<IDeliveryReportService>().Object);
 			context.Setup(c => c.LoggerFactory).Returns(new Mock<Transmitly.Logging.ILoggerFactory> { DefaultValue = DefaultValue.Mock }.Object);
+			context.Setup(c => c.ContentModel).Returns(Mock.Of<IContentModel>(m => m.LinkedResources == linkedResources));
 			return context.Object;
 		}
 
